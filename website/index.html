@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LaserTail</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <link rel="stylesheet" href="css/reset.css" type="text/css" media="screen" />
+    <link rel="stylesheet" href="css/style.css" type="text/css" media="screen" />
+    <script src="libraries/jquery.min.js" type="text/javascript"></script>
+    <script src="libraries/RequestAnimationFrame.js" type="text/javascript"></script>
+    <script src="libraries/raphael.min.js" type="text/javascript"></script>
+    <script src="libraries/Tween.js" type="text/javascript"></script>
+    <script src="build/lasertail.js" type="text/javascript"></script>
+</head>
+<body class="">
+
+    <div id="viewport">
+    </div>
+
+    <script>
+        $(function () {
+            window.tailer = new LaserTail($('#viewport')[0]);
+            tailer.addHits([
+                ["127.0.0.1", "/foo/bar"],
+                ["127.0.0.2", "/foo/bar"],
+                ["127.0.0.2", "/foo/baz"],
+            ]);
+            fetchHits("http://localhost:8421")
+        });
+
+    </script>
+
+</body>
+</html>
