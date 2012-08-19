@@ -109,9 +109,10 @@ class LaserTail
         @redraw()
 
     fetchHits: (url) ->
-        $.getJSON(url, (data) ->
-            addHits(data)
-            setTimeout(fetchHits(url), 300)
+        $.getJSON(url + "?since=" + @since, (data) =>
+            @addHits(data.hits)
+            @since = data.since
+            setTimeout((=> @fetchHits(url)), 1000)
         )
 
 window.LaserTail = LaserTail

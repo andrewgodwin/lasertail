@@ -19,6 +19,7 @@ body {
         font-size: 15px;
         line-height: 20px;
         text-align: right;
+        overflow: hidden;
     }
     .url {
         position: absolute;
@@ -26,4 +27,5 @@ body {
         width: 200px;
         font-size: 15px;
         line-height: 20px;
+        overflow: hidden;
     }

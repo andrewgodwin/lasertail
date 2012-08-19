@@ -19,12 +19,7 @@
     <script>
         $(function () {
             window.tailer = new LaserTail($('#viewport')[0]);
-            tailer.addHits([
-                ["127.0.0.1", "/foo/bar"],
-                ["127.0.0.2", "/foo/bar"],
-                ["127.0.0.2", "/foo/baz"],
-            ]);
-            fetchHits("http://localhost:8421")
+            tailer.fetchHits("http://localhost:8421")
         });
 
     </script>
