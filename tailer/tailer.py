@@ -32,7 +32,7 @@ class Tailer(object):
         self.lines = []
         self.hosts = hosts
         self.port = port
-        self.readers = [LineReader(host, file, self) for host, file in hosts]
+        self.readers = [LineReader(host, file, key, self) for host, file, key in hosts]
         [reader.start() for reader in self.readers]
 
     def consume_line(self, line):
@@ -75,16 +75,29 @@ class Tailer(object):
 
 class LineReader(threading.Thread):
 
-    def __init__(self, host, file, tailer):
+    def __init__(self, host, file, key, tailer):
         threading.Thread.__init__(self)
         self.host = host
         self.file = file
+        self.key = key
         self.tailer = tailer
 
     def run(self):
-        proc = subprocess.Popen(["ssh", self.host, "tail -f %s" % self.file], stdout=subprocess.PIPE)
+        command = ["ssh", self.host, "tail -f %s" % self.file]
+        if self.key:
+            command.insert(1, "-i")
+            command.insert(2, self.key)
+        proc = subprocess.Popen(command, stdout=subprocess.PIPE)
         for line in iter(proc.stdout.readline, ""):
             tailer.consume_line(line)
 
 
-tailer = Tailer([host.split(":", 1) for host in os.environ['LASERTAIL_HOSTS'].split(";")])
+def decode_host(host):
+    host, filename = host.split(":", 1)
+    if "?" in host:
+        host, key = host.split("?", 1)
+    else:
+        key = None
+    return host, filename, key
+
+tailer = Tailer([decode_host(host) for host in os.environ['LASERTAIL_HOSTS'].split(";")])
