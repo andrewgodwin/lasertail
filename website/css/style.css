@@ -14,18 +14,18 @@ body {
 }
     .host {
         position: absolute;
-        height: 12px;
-        line-height: 12px;
-        font-size: 10px;
+        height: 14px;
+        line-height: 14px;
+        font-size: 12px;
         width: 200px;
         text-align: right;
         overflow: hidden;
     }
     .url {
         position: absolute;
-        height: 12px;
-        line-height: 12px;
-        font-size: 10px;
+        height: 14px;
+        line-height: 14px;
+        font-size: 12px;
         width: 200px;
         overflow: hidden;
     }

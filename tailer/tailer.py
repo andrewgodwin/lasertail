@@ -15,7 +15,9 @@ class Tailer(object):
     """
 
     timeout = 30
-    format = re.compile(r'''
+
+    ipv4_format = re.compile(r'\d+\.\d+\.\d+\.\d+')
+    log_format = re.compile(r'''
         ^
         (\S+) \s+  # client
         (\S+) \s+  # ident
@@ -28,11 +30,13 @@ class Tailer(object):
         \"([^\"]*)\" \s+  # user agent
     ''', re.VERBOSE)
 
-    def __init__(self, hosts, port=8421):
+    def __init__(self, hosts, port=8421, trim_querystring=True, subnets=True):
         self.lines = []
         self.hosts = hosts
         self.port = port
         self.readers = [LineReader(host, file, key, self) for host, file, key in hosts]
+        self.trim_querystring = trim_querystring
+        self.subnets = subnets
         [reader.start() for reader in self.readers]
 
     def consume_line(self, line):
@@ -40,16 +44,22 @@ class Tailer(object):
         while self.lines and self.lines[0][0] < (time.time() - self.timeout):
             self.lines = self.lines[1:]
         # Add the new line
-        match = self.format.search(line)
+        match = self.log_format.search(line)
         if not match:
             print "Bad line: %s" % line
             return
         client, ident, http_user, timestamp, request, status, size, referrer, user_agent = match.groups()
+        # Get the path
         try:
             path = request.split()[1]
         except IndexError:
             return
-        self.lines.append((time.time(), {"host": client, "url": path}))
+        if self.trim_querystring:
+            path = path.split("?")[0]
+        # If subnets is on, trim the last octet of the IP
+        if self.ipv4_format.match(client):
+            client = client[:client.rindex(".")] + ".*"
+        self.lines.append((time.time(), {"host": client, "url": path, "status": int(status), "size": int(size)}))
 
     def lines_since(self, since=None):
         since = since or (time.time() - 10)
