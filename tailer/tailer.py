@@ -30,13 +30,21 @@ class Tailer(object):
         \"([^\"]*)\" \s+  # user agent
     ''', re.VERBOSE)
 
-    def __init__(self, hosts, port=8421, trim_querystring=True, subnets=True):
+    def __init__(self, settings):
         self.lines = []
-        self.hosts = hosts
-        self.port = port
-        self.readers = [LineReader(host, file, key, self) for host, file, key in hosts]
-        self.trim_querystring = trim_querystring
-        self.subnets = subnets
+        self.hosts = settings.get("HOSTS", [])
+        self.readers = [
+            LineReader(
+                setting['host'],
+                setting['file'],
+                setting.get('key', None),
+                self
+            )
+            for setting in self.hosts
+        ]
+        self.trim_query_strings = settings.get("TRIM_QUERY_STRINGS", True)
+        self.ips_as_subnets = settings.get("IPS_AS_SUBNETS", True)
+        self.url_renames = settings.get("URL_RENAMES", [])
         [reader.start() for reader in self.readers]
 
     def consume_line(self, line):
@@ -54,10 +62,13 @@ class Tailer(object):
             path = request.split()[1]
         except IndexError:
             return
-        if self.trim_querystring:
+        if self.trim_query_strings:
             path = path.split("?")[0]
+        # Apply any URL renames
+        for pattern, sub in self.url_renames.items():
+            path = re.sub(pattern, sub, path)
         # If subnets is on, trim the last octet of the IP
-        if self.ipv4_format.match(client):
+        if self.ips_as_subnets and self.ipv4_format.match(client):
             client = client[:client.rindex(".")] + ".*"
         self.lines.append((time.time(), {"host": client, "url": path, "status": int(status), "size": int(size)}))
 
@@ -110,4 +121,9 @@ def decode_host(host):
         key = None
     return host, filename, key
 
-tailer = Tailer([decode_host(host) for host in os.environ['LASERTAIL_HOSTS'].split(";")])
+
+# I know I shouldn't use execfile. So sue me.
+settings_file = os.environ.get('LASERTAIL_SETTINGS', "lasertail_settings.py")
+settings = {}
+execfile(settings_file, {}, settings)
+tailer = Tailer(settings)

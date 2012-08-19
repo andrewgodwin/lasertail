@@ -1,3 +1,4 @@
 *.st2
 *.sublime*
 website/build
+*settings.py
