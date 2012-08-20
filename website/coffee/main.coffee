@@ -6,11 +6,12 @@ class LaserTail
         @paper = Raphael(@container, 320, 200)
         # Create some data containers
         @hits = []
+        @lines = []
         @hostHeight = 14
         @urlHeight = 14
         @leftWidth = 210
         @rightWidth = 210
-        @laserDecay = 10
+        @laserDecay = 4
         @laserWidth = 2
         @hostExpiry = 30
         @urlExpiry = 60
@@ -25,9 +26,13 @@ class LaserTail
         @width = $(@container).width()
         @height = $(@container).height()
         @paper.setSize(@width, @height, false)
+        # Remove all lines
+        for line in @lines
+            line.remove()
+        @lines = []
         # Reset the hosts and urls to empty lists of the right length
-        @hosts = (null for i in [0..Math.floor(@height/@hostHeight)])
-        @urls = (null for i in [0..Math.floor(@height/@urlHeight)])
+        @hosts = (null for i in [0..Math.floor(@height/@hostHeight) - 1])
+        @urls = (null for i in [0..Math.floor(@height/@urlHeight) - 1])
         $(".host").remove()
         $(".url").remove()
 
@@ -61,7 +66,8 @@ class LaserTail
             host = @getHost(hit.host)
             url = @getUrl(hit.url)
             if host? and url?
-                path = @paper.path("M" + host.point[0] + "," + host.point[1] + "L" + url.point[0] + "," + url.point[1])
+                #path = @paper.path("M" + host.point[0] + "," + host.point[1] + "L" + url.point[0] + "," + url.point[1])
+                path = @paper.path("M" + host.point[0] + "," + host.point[1] + "C" + (host.point[0]+(@width/3)) + "," + host.point[1] + "," + (url.point[0]-(@width/3)) + "," + url.point[1] + "," + url.point[0] + "," + url.point[1])
                 color = "#aad"
                 if hit.status == 200
                     color = "#ada"
@@ -73,11 +79,8 @@ class LaserTail
                     color = "#b66"
                 path.attr("stroke", color)
                 path.attr("stroke-width", @laserWidth)
-                ((path, delay) => 
-                    path.animate({opacity: 0}, delay, "linear", ->
-                        path.remove();
-                    )
-                )(path, @laserDecay * 1000)
+                path.lastSeen = (new Date()).getTime() / 1000
+                @lines.push(path)
         @hits = []
 
     # Gets a host by name
@@ -169,7 +172,7 @@ class LaserTail
     removeUrl: (url) ->
         $(url.div).animate({right: -@rightWidth}, -> $(this).remove())
 
-    # A task to expire old URLs/hosts
+    # A task to dim and then expire old URLs/hosts
     expireOld: ->
         time = (new Date()).getTime() / 1000
         for host, index in @hosts
@@ -188,6 +191,15 @@ class LaserTail
                     @urls[index] = null
                 else
                     $(url.div).css({opacity: 1 - 0.8 * Math.min(percentageExpired*2, 1)})
-        setTimeout((=> @expireOld()), 300)
+        newlines = []
+        for line, index in @lines
+            percentageExpired = (time - line.lastSeen) / @laserDecay
+            if percentageExpired >= 1
+                line.remove()
+            else
+                newlines.push(line)
+                line.attr({opacity: 1 - percentageExpired})
+        @lines = newlines
+        setTimeout((=> @expireOld()), 100)
 
 window.LaserTail = LaserTail
