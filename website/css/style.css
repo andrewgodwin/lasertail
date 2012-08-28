@@ -14,8 +14,8 @@ body {
 }
     .host {
         position: absolute;
-        height: 14px;
-        line-height: 14px;
+        height: 18px;
+        line-height: 18px;
         font-size: 12px;
         width: 200px;
         text-align: right;
@@ -23,8 +23,8 @@ body {
     }
     .url {
         position: absolute;
-        height: 14px;
-        line-height: 14px;
+        height: 18px;
+        line-height: 18px;
         font-size: 12px;
         width: 200px;
         overflow: hidden;

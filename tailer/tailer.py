@@ -28,6 +28,7 @@ class Tailer(object):
         (\d+) \s+  # response size
         \"([^\"]*)\" \s+  # referrer
         \"([^\"]*)\" \s+  # user agent
+        (.*)  # everything else
     ''', re.VERBOSE)
 
     def __init__(self, settings):
@@ -45,18 +46,19 @@ class Tailer(object):
         self.trim_query_strings = settings.get("TRIM_QUERY_STRINGS", True)
         self.ips_as_subnets = settings.get("IPS_AS_SUBNETS", True)
         self.url_renames = settings.get("URL_RENAMES", [])
+        self.extra_fiddling = settings.get("EXTRA_FIDDLING", None)
         [reader.start() for reader in self.readers]
 
     def consume_line(self, line):
         # Remove old lines
-        while self.lines and self.lines[0][0] < (time.time() - self.timeout):
+        while self.lines and self.lines[0]['timestamp'] < (time.time() - self.timeout):
             self.lines = self.lines[1:]
         # Add the new line
         match = self.log_format.search(line)
         if not match:
             print "Bad line: %s" % line
             return
-        client, ident, http_user, timestamp, request, status, size, referrer, user_agent = match.groups()
+        client, ident, http_user, timestamp, request, status, size, referrer, user_agent, extra = match.groups()
         # Get the path
         try:
             path = request.split()[1]
@@ -70,12 +72,19 @@ class Tailer(object):
         # If subnets is on, trim the last octet of the IP
         if self.ips_as_subnets and self.ipv4_format.match(client):
             client = client[:client.rindex(".")] + ".*"
-        self.lines.append((time.time(), {"host": client, "url": path, "status": int(status), "size": int(size)}))
+        # Build the line dict
+        line_dict = {"timestamp": time.time(), "host": client, "url": path, "status": int(status), "size": int(size), "referrer": referrer, "user_agent": user_agent, "extra": extra}
+        # Run any custom function
+        if self.extra_fiddling:
+            line_dict = self.extra_fiddling(line_dict)
+        # Remove extra info
+        del line_dict['extra']
+        self.lines.append(line_dict)
 
     def lines_since(self, since=None):
         since = since or (time.time() - 10)
-        for timestamp, details in self.lines:
-            if timestamp > since:
+        for details in self.lines:
+            if details['timestamp'] > since:
                 yield details
 
     def __call__(self, environ, start_response):
@@ -108,9 +117,10 @@ class LineReader(threading.Thread):
         if self.key:
             command.insert(1, "-i")
             command.insert(2, self.key)
-        proc = subprocess.Popen(command, stdout=subprocess.PIPE)
-        for line in iter(proc.stdout.readline, ""):
-            tailer.consume_line(line)
+        while True:
+            proc = subprocess.Popen(command, stdout=subprocess.PIPE)
+            for line in iter(proc.stdout.readline, ""):
+                tailer.consume_line(line)
 
 
 def decode_host(host):

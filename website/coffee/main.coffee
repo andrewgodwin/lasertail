@@ -7,15 +7,15 @@ class LaserTail
         # Create some data containers
         @hits = []
         @lines = []
-        @hostHeight = 14
-        @urlHeight = 14
+        @hostHeight = $("<div class='host'>test</div>").appendTo("body").height()
+        @urlHeight = $("<div class='url'>test</div>").appendTo("body").height()
         @leftWidth = 210
         @rightWidth = 210
         @laserDecay = 4
         @laserWidth = 2
         @hostExpiry = 30
         @urlExpiry = 60
-        @refreshInterval = 0.3
+        @refreshInterval = 5
         # Set up resizing and expiry
         @resizeRenderer()
         window.addEventListener('resize', (=> @resizeRenderer()), false)
@@ -67,7 +67,12 @@ class LaserTail
             url = @getUrl(hit.url)
             if host? and url?
                 #path = @paper.path("M" + host.point[0] + "," + host.point[1] + "L" + url.point[0] + "," + url.point[1])
-                path = @paper.path("M" + host.point[0] + "," + host.point[1] + "C" + (host.point[0]+(@width/3)) + "," + host.point[1] + "," + (url.point[0]-(@width/3)) + "," + url.point[1] + "," + url.point[0] + "," + url.point[1])
+                path = @paper.path(
+                    "M" + host.point[0] + "," + host.point[1] +
+                    "C" + (host.point[0]+(@width/(3+Math.random()))) + "," + host.point[1] +
+                    "," + (url.point[0]-(@width/(3+Math.random()))) + "," + url.point[1] +
+                    "," + url.point[0] + "," + url.point[1]
+                )
                 color = "#aad"
                 if hit.status == 200
                     color = "#ada"
@@ -153,16 +158,19 @@ class LaserTail
     # Runs a task to fetch hits from a polling server
     fetchHits: (url) ->
         # Create a watchdog in case the connection drops
-        ((oldSince) => setTimeout((=>
-            if oldSince == @since
-                @fetchHits(url)
-        ), @refreshInterval * 5000))(@since)
-        # Get the JSON
-        $.getJSON(url + "?since=" + @since, (data) =>
-            @addHits(data.hits)
-            @since = data.since
-            setTimeout((=> @fetchHits(url)), @refreshInterval * 1000)
-        )
+        ((oldSince) => 
+            setTimeout((=>
+                if oldSince == @since
+                    @fetchHits(url)
+            ), @refreshInterval * 3000)
+            # Get the JSON
+            $.getJSON(url + "?since=" + @since, (data) =>
+                for hit in data.hits
+                    ((hit) => setTimeout((=> @addHit(hit)), (hit.timestamp - oldSince) * 1000))(hit)
+                @since = data.since
+                setTimeout((=> @fetchHits(url)), @refreshInterval * 1000)
+            )
+        )(@since)
 
     # Removes a host (doesn't touch @hosts, do that first)
     removeHost: (host) ->
